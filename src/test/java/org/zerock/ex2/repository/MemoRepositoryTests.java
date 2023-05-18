@@ -1,0 +1,134 @@
+package org.zerock.ex2.repository;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.test.annotation.Commit;
+import org.zerock.ex2.entity.Memo;
+
+import javax.transaction.Transactional;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.IntStream;
+
+@SpringBootTest
+public class MemoRepositoryTests {
+
+    @Autowired
+    MemoRepository memoRepository;
+
+    @Test
+    public void testClass() {
+        System.out.println(memoRepository.getClass().getName());
+    }
+
+    @Test
+    public void testInsertDummies() {
+        IntStream.rangeClosed(1, 100).forEach(i -> {
+            Memo memo = Memo.builder().memoText("Sample..." + i).build();
+            memoRepository.save(memo);
+        });
+    }
+
+    @Test
+    public void testSelect() {
+        Long mno = 100L;
+        Optional<Memo> result = memoRepository.findById(mno);
+
+        System.out.println("===================================");
+        if (result.isPresent()) {
+            Memo memo = result.get();
+            System.out.println(memo);
+        }
+    }
+
+    @Test
+    public void testUpdate() {
+        Memo memo = Memo.builder().mno(100L).memoText("Update Text").build();
+
+        System.out.println(memoRepository.save(memo));
+    }
+
+    @Test
+    public void testDelete() {
+        Long mno = 100L;
+
+        memoRepository.deleteById(mno);
+    }
+
+    @Test
+    public void testPageDefault() {
+
+        Pageable pageable = PageRequest.of(0, 10);
+
+        Page<Memo> result = memoRepository.findAll(pageable);
+        System.out.println(result);
+
+        System.out.println("-----------------------------------------");
+
+        System.out.println("Total Pages : " + result.getTotalPages()); // 총 몇 페이지
+        System.out.println("Total Count : " + result.getTotalElements()); // 전체 개수
+        System.out.println("Page Number : " + result.getNumber()); // 현재 페이지 번호 0 부터 시작
+        System.out.println("Page Size : " + result.getSize()); // 페이지당 데이터 개수
+        System.out.println("has next page?: " + result.hasNext()); // 다음 페이지 존재 여부
+        System.out.println("first page? : " + result.isFirst()); // 시작 페이지(0) 여부
+
+        System.out.println("-----------------------------------------");
+
+        // 실제 페이지의 데이터 처리
+        for (Memo memo : result.getContent()) {
+            System.out.println(memo);
+        }
+    }
+
+    @Test
+    public void testSort() {
+        Sort sort1 = Sort.by("mno").descending();
+        Sort sort2 = Sort.by("memoText").ascending();
+        Sort sortAll = sort1.and(sort2);
+
+        Pageable pageable = PageRequest.of(0, 10, sortAll);
+
+        Page<Memo> result = memoRepository.findAll(pageable);
+
+        result.get().forEach(memo -> {
+            System.out.println(memo);
+        });
+    }
+
+    @Test
+    public void testQueryMethods() {
+
+        List<Memo> list = memoRepository.findByMnoBetweenOrderByMnoDesc(70L, 80L);
+
+        for (Memo memo : list) {
+            System.out.println(memo);
+        }
+    }
+
+    @Test
+    public void testQueryMethodWithPagealbe() {
+        Pageable pageable = PageRequest.of(0, 10, Sort.by("mno").descending());
+
+        // 메서드에 order by를 사용하지 않고 pageable을 이용해서 정렬
+        Page<Memo> result = memoRepository.findByMnoBetween(10L, 50L, pageable);
+
+        result.get().forEach(memo -> System.out.println(memo));
+    }
+
+    @Commit // 최종 결과를 커밋하기 위해서 사용. 테스트 코드의 deleteBy..는 기본적으로 롤백 처리되어서 결과가 반영 되지 않는다.
+    @Transactional // 'select'문으로 해당 엔티티 객체들을 가져오는 작업과 각 엔티티를 삭제하는 작업이 같이 이루어지기 때문에 사용
+    @Test
+    public void testDeleteQueryMethods() {
+
+        /* deleteBy는 실제 개발에는 많이 사용되지 않는데 그 이유는 SQL을 이용하듯이 한번에 삭제가 이루어지는 것이 아니라 하나씩 삭제하기 때문
+         -> @Query를 이용해서 비효율적인 부분 개선
+         */
+        memoRepository.deleteMemoByMnoLessThan(10L); // 메모의 번호가(mno)가 10보다 작은 데이터를 삭제
+
+    }
+}
